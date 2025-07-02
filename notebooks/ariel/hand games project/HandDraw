@@ -1,0 +1,91 @@
+import cv2
+import mediapipe as mp
+import time
+import math
+
+def distance_3d(p1, p2):
+    dx = p1.x - p2.x
+    dy = p1.y - p2.y
+    dz = p1.z - p2.z
+    return math.sqrt(dx**2 + dy**2 + dz**2)
+
+# Initialize MediaPipe
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands()
+mp_draw = mp.solutions.drawing_utils
+
+cap = cv2.VideoCapture(0)
+last_color_change_time = 0  # For timing the delay
+
+# Store points that make up the drawing
+draw_points = []
+prev_point = None
+
+colors = [
+    (255, 0, 0),    # Blue
+    (0, 255, 0),    # Green
+    (0, 0, 255),    # Red
+    (255, 255, 0),  # Cyan
+    (255, 0, 255),  # Magenta
+    (0, 255, 255),  # Yellow
+    (255, 255, 255) # White
+]
+current_color_index = 0
+current_color = colors[current_color_index]
+
+while True:
+    success, img = cap.read()
+    img = cv2.flip(img, 1)
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    results = hands.process(img_rgb)
+
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            wrist = hand_landmarks.landmark[0]
+            middle_bottom = hand_landmarks.landmark[0]
+            hx = wrist.x - middle_bottom.x
+            hy = wrist.y - middle_bottom.y
+            #calculating hand size so we can adjust for different sized hands
+            hand_size = (hx**2 + hy**2) **0.5
+            print(hand_size)
+            index_tip = hand_landmarks.landmark[8]
+            h, w, _ = img.shape
+            x = int(index_tip.x * w)
+            y = int(index_tip.y * h)
+            dx = hand_landmarks.landmark[8].x - hand_landmarks.landmark[4].x 
+            dy = hand_landmarks.landmark[4].y- hand_landmarks.landmark[4].y
+            distance = ((dx**2 + dy**2) ** 0.5 )
+            if hand_size > 1e-5: 
+                real_distance = distance/hand_size
+            else:
+                real_distance = distance
+
+            print((real_distance))
+            print(distance)
+            # Save the position to draw later
+            draw_points.append((x, y))
+                # Assume 'distance' is being calculated above this block
+
+                # Only change color if condition is met AND at least 1 second has passed
+            if (real_distance) < 0.003:
+                current_time = time.time()
+
+                if current_time - last_color_change_time > 1:  # 1 second cooldown
+                    current_color_index = (current_color_index + 1) % len(colors)
+                    current_color = colors[current_color_index]
+                    last_color_change_time = current_time
+
+            # Optional: draw hand landmarks
+            mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            
+    # Draw the trail of the finger
+    for i in range(1, len(draw_points)):
+        cv2.circle(img, (x, y), 10, current_color, cv2.FILLED)
+        cv2.line(img, draw_points[i - 1], draw_points[i], current_color, 5)
+
+    cv2.imshow("Finger Drawing", img)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()

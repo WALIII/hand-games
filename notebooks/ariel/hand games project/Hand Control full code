@@ -1,0 +1,76 @@
+import mediapipe as mp
+import math
+import cv2
+import time
+WIDTH, HEIGHT = 800, 600
+
+#better for depth functions, since less accurate
+def distance_3d(p1, p2):
+    dx = p1.x - p2.x
+    dy = p1.y - p2.y
+    dz = p1.z - p2.z
+    return math.sqrt(dx**2 + dy**2 + dz**2)
+#better for 2D related functions 
+def distance_2d_px(p1, p2, w, h):
+    x1, y1 = int(p1.x * w), int(p1.y * h)
+    x2, y2 = int(p2.x * w), int(p2.y * h)
+    return ((x1 - x2)**2 + (y1 - y2)**2)**0.5
+
+def landmark_to_pixel(landmark, img):
+    h, w, _ = img.shape
+    x_px = int(landmark.x * w)
+    y_px = int(landmark.y * h)
+    return (x_px, y_px)
+
+cap = cv2.VideoCapture(0)
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands()
+mp_draw = mp.solutions.drawing_utils
+
+while True:
+    success, img = cap.read()
+    img = cv2.flip(img, 1)
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    results = hands.process(img_rgb)
+
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            pinkymcp = hand_landmarks.landmark[17]
+            indexmcp = hand_landmarks.landmark[5]
+            wrist = hand_landmarks.landmark[0]
+            middlemcp = hand_landmarks.landmark[9]
+            hand_width = distance_2d_px(indexmcp, pinkymcp,WIDTH,HEIGHT )
+            hand_height = distance_2d_px(wrist,middlemcp,WIDTH,HEIGHT)
+            #calculating hand size so we can adjust for different sized hands
+            hand_size = (hand_height + hand_width)/2
+            
+            #finding Euclidian distance for a more accurate result
+            index_tip = hand_landmarks.landmark[8]
+            h, w, _ = img.shape
+            x = int(index_tip.x * w)
+            y = int(index_tip.y * h)
+            #dx = hand_landmarks.landmark[8].x - hand_landmarks.landmark[4].x 
+            distance = distance_2d_px(hand_landmarks.landmark[8], hand_landmarks.landmark[4],WIDTH,HEIGHT)
+            #dy = hand_landmarks.landmark[4].y- hand_landmarks.landmark[4].y
+            #distance = ((dx**2 + dy**2) ** 0.5 )
+            if hand_size > 1e-5: 
+                real_distance = distance/hand_size
+                print(real_distance)
+                
+            else:
+                real_distance = distance
+                
+
+
+                # Only change color if condition is met AND at least 1 second has passed
+            if (real_distance) < 0.003:
+                current_time = time.time()
+
+
+            # Optional: draw hand landmarks
+            mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            
+
+    cv2.imshow("pinching", img)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break

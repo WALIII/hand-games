@@ -1,0 +1,148 @@
+import mediapipe as mp
+import math
+import cv2
+import time
+import pygame
+import random
+import numpy as np
+
+WIDTH, HEIGHT = 960, 540
+pinching = 0
+index_pos = (0, 0)
+
+def is_close(p1, p2, threshold):
+    dx = p1[0] - p2[0]
+    dy = p1[1] - p2[1]
+    distance = (dx**2 + dy**2)**0.5
+    return distance < threshold
+
+def distance_2d_px(p1, p2, w, h):
+    x1, y1 = int(p1.x * w), int(p1.y * h)
+    x2, y2 = int(p2.x * w), int(p2.y * h)
+    return ((x1 - x2)**2 + (y1 - y2)**2)**0.5
+
+def landmark_to_pixel(landmark,w,h):
+    x_px = int(landmark.x * w)
+    y_px = int(landmark.y * h)
+    return (x_px, y_px)
+# --- Initialize Camera ---
+cap = cv2.VideoCapture(0)
+
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands()
+pygame.init()
+
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("Drag the Green Circles into the Black Square")
+
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+BLACK = (0, 0, 0)
+font = pygame.font.SysFont(None, 36)
+
+# Game Objects
+NUM_CIRCLES = 10
+CIRCLE_RADIUS = 15
+SQUARE_SIZE = 100
+SQUARE_POS = (WIDTH - SQUARE_SIZE - 200, HEIGHT//2 - SQUARE_SIZE//2)
+
+circles = []
+for _ in range(NUM_CIRCLES):
+    x = random.randint(CIRCLE_RADIUS, WIDTH - CIRCLE_RADIUS - SQUARE_SIZE - 100)
+    y = random.randint(CIRCLE_RADIUS, HEIGHT - CIRCLE_RADIUS)
+    circles.append({'pos': [x, y], 'dragging': False})
+
+score = 0
+clock = pygame.time.Clock()
+running = True
+
+while running:
+    success, frame = cap.read()
+    if not success:
+        break
+
+    # Fix: flip for selfie-view, then convert to RGB
+    frame = cv2.flip(frame, 1)  # Horizontal flip
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert to RGB for MediaPipe and Pygame
+
+    # Fix: Pygame expects (width, height) order; transpose (H, W, C) -> (W, H, C)
+    frame_rgb = cv2.resize(frame_rgb, (WIDTH, HEIGHT))
+    frame_surface = pygame.surfarray.make_surface(frame_rgb.swapaxes(0, 1))  # swapaxes for correct Pygame surface
+    screen.blit(frame_surface, (0, 0))
+
+    # Process hands
+    results = hands.process(frame_rgb)
+
+    # Show score
+    score_text = font.render(f"Score: {score}", True, BLACK)
+    screen.blit(score_text, (WIDTH - 180, 20))
+    pygame.draw.rect(screen, BLACK, (*SQUARE_POS, SQUARE_SIZE, SQUARE_SIZE))
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            pinkymcp = hand_landmarks.landmark[17]
+            indexmcp = hand_landmarks.landmark[5]
+            wrist = hand_landmarks.landmark[0]
+            middlemcp = hand_landmarks.landmark[9]
+            hand_width = distance_2d_px(indexmcp, pinkymcp, WIDTH, HEIGHT)
+            hand_height = distance_2d_px(wrist, middlemcp, WIDTH, HEIGHT)
+            hand_size = (hand_height + hand_width) / 2
+
+            index_tip = hand_landmarks.landmark[8]
+            thumb_tip = hand_landmarks.landmark[4]
+            pinching = distance_2d_px(index_tip, thumb_tip, WIDTH, HEIGHT) / hand_size
+            
+            ix = int(index_tip.x * WIDTH)
+            iy = int(index_tip.y * HEIGHT)
+            thumb_tip = landmark_to_pixel(hand_landmarks.landmark[4],HEIGHT,WIDTH)
+            index_pos = (ix, iy)
+            tx = int(hand_landmarks.landmark[4].x * WIDTH)
+            ty = int(hand_landmarks.landmark[4].y * HEIGHT)
+            tix = ((tx + ix)/2)
+            tiy = ((ty + iy)/2)
+            if pinching < 0.25:
+                print(index_pos)
+                print(circle['pos'])
+                closest_circle = None
+                closest_dist = float('inf')
+                for circle in circles:
+                    if not circle['dragging']:
+                        if is_close(circle['pos'], index_pos, 25):
+                            circle['dragging'] = True
+                            #dist = math.hypot(index_pos[0] - circle['pos'][0], index_pos[1] - circle['pos'][1])
+                            #if dist < closest_dist:
+                                #closest_circle = circle
+                                #closest_dist = dist
+                #if closest_circle:
+                    #closest_circle['dragging'] = True
+
+            if pinching >= 1:
+                for circle in circles:
+                    circle['dragging'] = False
+                    circle['pos'] = circle['pos']
+                    cx, cy = circle['pos']
+                    sx, sy = SQUARE_POS
+                    if sx <= cx <= sx + SQUARE_SIZE and sy <= cy <= sy + SQUARE_SIZE:
+                        circles.remove(circle)
+                        score += 1
+
+            for circle in circles:
+                if circle['dragging']:
+                    circle['pos'] = ((tix),(tiy))
+
+    # Draw circles
+    for circle in circles:
+        pygame.draw.circle(screen, GREEN, circle['pos'], CIRCLE_RADIUS)
+
+    # Event handling
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
+cap.release()
+
+            
+

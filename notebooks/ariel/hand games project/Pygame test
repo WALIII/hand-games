@@ -1,0 +1,24 @@
+import pygame
+import sys
+pygame.init()
+screen = pygame.display.set_mode((1000, 800))
+background = pygame.image.load("skyupscaled.png").convert()
+background = pygame.transform.scale(background, (1736, 800))
+
+pygame.display.set_caption("My First Pygame test")
+
+running = True
+
+while running:
+    screen.blit(background, (0,0))
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+    mouse_pos = pygame.mouse.get_pos()
+    pygame.draw.circle(screen, (0, 255, 0), mouse_pos, 10)
+
+    pygame.display.flip()
+
+pygame.quit()
+sys.exit()
