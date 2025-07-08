@@ -1,0 +1,158 @@
+import pygame
+import math
+import random
+from HandTracker import HandTracker 
+import time
+
+last_call_time = 0  # tracks last time function was called
+cooldown = 0.5      # half a second
+
+targets = []
+WIDTH, HEIGHT = 800, 600
+HT = HandTracker(WIDTH,HEIGHT)
+MIN_TARGET_DISTANCE = 200  # pixels away from cannon center
+Left = False
+Right = False
+def is_far_enough(x, y):
+    dx = x - center_x
+    dy = y - center_y
+    distance = math.sqrt(dx**2 + dy**2)
+    return distance > MIN_TARGET_DISTANCE
+
+pygame.init()
+font = pygame.font.SysFont(None, 36)
+
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+
+BLACK = [100,100,100]
+score = 0
+
+# Rectangle dimensions
+rect_length = 50
+rect_width = 20
+
+# Rectangle surface with alpha
+rect_surf = pygame.Surface((rect_length, rect_width), pygame.SRCALPHA)
+rect_surf.fill((0, 255, 0, 255))  # Green barrel
+
+RED = (255, 0, 0)
+GREEN = (0,255,0)
+angle = 0
+center_x, center_y = WIDTH // 2, HEIGHT // 2
+radius = 50
+cannonballs = []
+running = True
+while len(targets) < 5:
+    tx = random.randint(50, WIDTH - 90)
+    ty = random.randint(50, HEIGHT - 90)
+    if is_far_enough(tx, ty):
+        targets.append(pygame.Rect(tx, ty, 100, 40))
+        
+
+while running:
+    screen.fill((30, 30, 30))  # Clear screen
+    score_text = font.render(f"Score: {score}", True, BLACK)
+    screen.blit(score_text, (WIDTH - 180, 20))
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            radians = math.radians(angle)
+            # Compute base rotation position (where rectangle is centered)
+            x = center_x + radius * math.cos(radians)
+            y = center_y + radius * math.sin(radians)
+
+            # Tip of the barrel = add half the rect length along the rotation
+            barrel_tip_x = x + (rect_length / 2) * math.cos(radians)
+            barrel_tip_y = y + (rect_length / 2) * math.sin(radians)
+
+            speed = 20
+            velocity = [speed * math.cos(radians), speed * math.sin(radians)]
+            cannonballs.append({'pos': [barrel_tip_x, barrel_tip_y], 'velocity': velocity})
+    indexpos = HT.update()
+    #print (indexpos)
+    wristdist = HT.wristdist()
+    #print(wristdist)
+    pinkywrist = HT.pinkywrist()
+    thumbwrist = HT.thumbwrist()
+    indexwrist = HT.indexwrist()
+    angle %= 360  
+    #if Left == True:
+    #    angle =
+    print(indexwrist)
+    if indexwrist is not None and indexwrist < 1.6:
+        speed = 10  # how fast you move
+        radians = math.radians(angle)  # convert degrees to radians
+
+        mx = math.cos(radians) * speed
+        my = math.sin(radians) * speed
+
+# Update position
+        center_x = center_x + mx
+        center_y = center_y + my
+
+
+    current_time = time.time()
+    if thumbwrist is not None and thumbwrist < 1.35:
+        angle = angle - 10
+    if pinkywrist is not None and pinkywrist < 1.4:
+        angle = angle + 10
+    if wristdist is not None and current_time - last_call_time >= cooldown:
+        if wristdist > 0.000001 and wristdist < 1.2:
+            radians = math.radians(angle)
+                # Compute base rotation position (where rectangle is centered)
+            x = center_x + radius * math.cos(radians)
+            y = center_y + radius * math.sin(radians)
+
+                # Tip of the barrel = add half the rect length along the rotation
+            barrel_tip_x = x + (rect_length / 2) * math.cos(radians)
+            barrel_tip_y = y + (rect_length / 2) * math.sin(radians)
+
+            speed = 20
+            velocity = [speed * math.cos(radians), speed * math.sin(radians)]
+            cannonballs.append({'pos': [barrel_tip_x, barrel_tip_y], 'velocity': velocity})
+            last_call_time = current_time
+    
+    radians = math.radians(angle)
+    x = center_x + radius * math.cos(radians)
+    y = center_y + radius * math.sin(radians)
+
+    # Rotate and center rectangle
+    rotated = pygame.transform.rotate(rect_surf, -angle)
+    rect = rotated.get_rect(center=(x, y))
+
+    # Update and draw cannonballs
+    for ball in cannonballs:
+        ball['pos'][0] += ball['velocity'][0]
+        ball['pos'][1] += ball['velocity'][1]
+    for ball in cannonballs:
+        ball_rect = pygame.Rect(ball['pos'][0], ball['pos'][1], 10, 10)
+        if ball ['pos'][0] > WIDTH or ball['pos'][0] < 0:
+            cannonballs.remove(ball)
+            
+        elif ball ['pos'][1] > HEIGHT or ball['pos'][1] < 0:
+            cannonballs.remove(ball)
+            
+        for target in targets[:]:
+            if ball_rect.colliderect(target):
+                targets.remove(target)
+                score = score + 1
+            
+                
+    # Draw pivot and barrel
+    for ball in cannonballs:
+        pygame.draw.rect(screen, RED, pygame.Rect(ball['pos'][0], ball['pos'][1], 10, 10))
+    for target in targets:
+        pygame.draw.rect(screen, GREEN, target)
+    pygame.draw.circle(screen, (120, 255, 100), (center_x, center_y), radius - 30)  # Pivot circle
+    screen.blit(rotated, rect)
+
+    pygame.display.flip()
+    clock.tick(30)
+
+pygame.quit()
+
