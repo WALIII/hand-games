@@ -142,7 +142,7 @@ while running:
                 targets.remove(target)
                 score = score + 1
             
-                
+    print(pinkywrist)
     # Draw pivot and barrel
     for ball in cannonballs:
         pygame.draw.rect(screen, RED, pygame.Rect(ball['pos'][0], ball['pos'][1], 10, 10))
