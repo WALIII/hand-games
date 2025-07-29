@@ -1,0 +1,70 @@
+import cv2
+import mediapipe as mp
+import csv
+import time
+from HandTracker import HandTracker
+
+# Initialize MediaPipe
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands()
+mp_draw = mp.solutions.drawing_utils
+HT = HandTracker(0,0)
+
+# Open webcam
+cap = cv2.VideoCapture(0)
+
+# Prepare CSV
+csv_file = open('hand_landmarksraw1.csv', mode='w', newline='')
+csv_writer = csv.writer(csv_file)
+header = ['frame']
+for i in range(21):  # 21 landmarks
+    header += [f'x{i}', f'y{i}']
+csv_writer.writerow(header)
+
+frame_num = 0
+
+while True:
+    success, frame = cap.read()
+    if not success:
+        break
+
+    # Flip the image for natural interaction
+    frame = cv2.flip(frame, 1)
+
+    # Convert BGR to RGB
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = hands.process(rgb)
+    handsize= HT.handsize(frame, results)
+    # Draw landmarks    
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+        
+            # Save landmarks
+            row = [frame_num]
+        h, w, _ = frame.shape
+
+        for lm in hand_landmarks.landmark:
+            if handsize is not None and handsize > 0:
+                px = lm.x * w
+                py = lm.y * h
+
+                norm_x = (px) / handsize
+                norm_y = (py) / handsize
+
+                row.append(norm_x)
+                row.append(norm_y)
+
+
+    # Show the camera feed
+    cv2.imshow("Hand Tracking", frame)
+    frame_num += 1
+
+    # Press 'q' to quit
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Clean up
+cap.release()
+cv2.destroyAllWindows()
+csv_file.close()
