@@ -13,35 +13,14 @@ class HandTracker:
             min_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        )
         self.index_tip_pos = (0, 0)
         self.frame = None
         self.results = None
-        self.frame = None
-        self.results = None
 
-    def capture_frame(self):
-        """Capture and process one frame per loop iteration"""
     def capture_frame(self):
         """Capture and process one frame per loop iteration"""
         success, frame = self.cap.read()
         if not success:
-            self.frame = None
-            self.results = None
-            return False
-        self.frame = frame
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        self.results = self.hands.process(frame_rgb)
-        return True
-
-    def update(self):
-        """Return index fingertip position as (x, y) in pixels"""
-        if not self.results or not self.results.multi_hand_landmarks:
             self.frame = None
             self.results = None
             return False
@@ -61,13 +40,6 @@ class HandTracker:
             int(index_tip.x * self.width),
             int(index_tip.y * self.height)
         )
-
-        hand_landmarks = self.results.multi_hand_landmarks[0]
-        index_tip = hand_landmarks.landmark[8]
-        self.index_tip_pos = (
-            int(index_tip.x * self.width),
-            int(index_tip.y * self.height)
-        )
         return self.index_tip_pos
 
     def _get_hand_size(self, hand):
@@ -79,35 +51,7 @@ class HandTracker:
         x1, y1 = pinkymcp.x * self.width, pinkymcp.y * self.height
         x2, y2 = wrist.x * self.width, wrist.y * self.height
         x3, y3 = indexmcp.x * self.width, indexmcp.y * self.height
-    def _get_hand_size(self, hand):
-        """Helper to compute normalized hand size for scaling distances"""
-        pinkymcp = hand.landmark[17]
-        indexmcp = hand.landmark[5]
-        wrist = hand.landmark[0]
 
-        x1, y1 = pinkymcp.x * self.width, pinkymcp.y * self.height
-        x2, y2 = wrist.x * self.width, wrist.y * self.height
-        x3, y3 = indexmcp.x * self.width, indexmcp.y * self.height
-
-        hand_width = ((x1 - x3) ** 2 + (y1 - y3) ** 2) ** 0.5
-        hand_height = ((x2 - x3) ** 2 + (y2 - y3) ** 2) ** 0.5
-        hand_size = (hand_width + hand_height) / 2
-        return hand_size
-
-    def wristdist(self):
-        if not self.results or not self.results.multi_hand_landmarks:
-            return None
-
-        hand = self.results.multi_hand_landmarks[0]
-        indextip = hand.landmark[12]
-        wrist = hand.landmark[0]
-
-        hand_size = self._get_hand_size(hand)
-
-        tip_x = indextip.x * self.width
-        tip_y = indextip.y * self.height
-        wrist_x = wrist.x * self.width
-        wrist_y = wrist.y * self.height
         hand_width = ((x1 - x3) ** 2 + (y1 - y3) ** 2) ** 0.5
         hand_height = ((x2 - x3) ** 2 + (y2 - y3) ** 2) ** 0.5
         hand_size = (hand_width + hand_height) / 2
@@ -135,13 +79,6 @@ class HandTracker:
 
     def pinkywrist(self):
         if not self.results or not self.results.multi_hand_landmarks:
-        distance = ((tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2) ** 0.5
-        if hand_size > 0:
-            return distance / hand_size
-        return distance if distance > 0 else None
-
-    def pinkywrist(self):
-        if not self.results or not self.results.multi_hand_landmarks:
             return None
 
         hand = self.results.multi_hand_landmarks[0]
@@ -155,24 +92,6 @@ class HandTracker:
         wrist_x = wrist.x * self.width
         wrist_y = wrist.y * self.height
 
-        hand = self.results.multi_hand_landmarks[0]
-        pinkytip = hand.landmark[20]
-        wrist = hand.landmark[0]
-
-        hand_size = self._get_hand_size(hand)
-
-        tip_x = pinkytip.x * self.width
-        tip_y = pinkytip.y * self.height
-        wrist_x = wrist.x * self.width
-        wrist_y = wrist.y * self.height
-
-        distance = ((tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2) ** 0.5
-        if hand_size > 0:
-            return distance / hand_size
-        return distance if distance > 0 else None
-
-    def thumbwrist(self):
-        if not self.results or not self.results.multi_hand_landmarks:
         distance = ((tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2) ** 0.5
         if hand_size > 0:
             return distance / hand_size
@@ -193,42 +112,14 @@ class HandTracker:
         wrist_x = wrist.x * self.width
         wrist_y = wrist.y * self.height
 
-        hand = self.results.multi_hand_landmarks[0]
-        thumbtip = hand.landmark[4]
-        wrist = hand.landmark[0]
-
-        hand_size = self._get_hand_size(hand)
-
-        tip_x = thumbtip.x * self.width
-        tip_y = thumbtip.y * self.height
-        wrist_x = wrist.x * self.width
-        wrist_y = wrist.y * self.height
-
-        distance = ((tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2) ** 0.5
-        if hand_size > 0:
-            return distance / hand_size
-        return distance if distance > 0 else None
         distance = ((tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2) ** 0.5
         if hand_size > 0:
             return distance / hand_size
         return distance if distance > 0 else None
 
-    def indexwrist(self):
-        if not self.results or not self.results.multi_hand_landmarks:
     def indexwrist(self):
         if not self.results or not self.results.multi_hand_landmarks:
             return None
-
-        hand = self.results.multi_hand_landmarks[0]
-        indextip = hand.landmark[8]
-        wrist = hand.landmark[0]
-
-        hand_size = self._get_hand_size(hand)
-
-        tip_x = indextip.x * self.width
-        tip_y = indextip.y * self.height
-        wrist_x = wrist.x * self.width
-        wrist_y = wrist.y * self.height
 
         hand = self.results.multi_hand_landmarks[0]
         indextip = hand.landmark[8]
@@ -248,13 +139,6 @@ class HandTracker:
 
     def ringwrist(self):
         if not self.results or not self.results.multi_hand_landmarks:
-        distance = ((tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2) ** 0.5
-        if hand_size > 0:
-            return distance / hand_size
-        return distance if distance > 0 else None
-
-    def ringwrist(self):
-        if not self.results or not self.results.multi_hand_landmarks:
             return None
 
         hand = self.results.multi_hand_landmarks[0]
@@ -267,22 +151,6 @@ class HandTracker:
         tip_y = ringtip.y * self.height
         wrist_x = wrist.x * self.width
         wrist_y = wrist.y * self.height
-
-        hand = self.results.multi_hand_landmarks[0]
-        ringtip = hand.landmark[16]
-        wrist = hand.landmark[0]
-
-        hand_size = self._get_hand_size(hand)
-
-        tip_x = ringtip.x * self.width
-        tip_y = ringtip.y * self.height
-        wrist_x = wrist.x * self.width
-        wrist_y = wrist.y * self.height
-
-        distance = ((tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2) ** 0.5
-        if hand_size > 0:
-            return distance / hand_size
-        return distance if distance > 0 else None
 
         distance = ((tip_x - wrist_x) ** 2 + (tip_y - wrist_y) ** 2) ** 0.5
         if hand_size > 0:
@@ -291,19 +159,7 @@ class HandTracker:
 
     def middlewrist(self):
         if not self.results or not self.results.multi_hand_landmarks:
-        if not self.results or not self.results.multi_hand_landmarks:
             return None
-
-        hand = self.results.multi_hand_landmarks[0]
-        middlemcp = hand.landmark[9]
-        wrist = hand.landmark[0]
-
-        hand_size = self._get_hand_size(hand)
-
-        tip_x = middlemcp.x * self.width
-        tip_y = middlemcp.y * self.height
-        wrist_x = wrist.x * self.width
-        wrist_y = wrist.y * self.height
 
         hand = self.results.multi_hand_landmarks[0]
         middlemcp = hand.landmark[9]
