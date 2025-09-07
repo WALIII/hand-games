@@ -6,9 +6,9 @@ import time
 from background import SpriteAnimator, static, Enemy
 import os
 def draw_text(text,x,y):
-    screen.fill((0, 0, 0))
+    base_surface.fill((0, 0, 0))
     text_surface = font.render(text, True, (255, 255, 255))
-    screen.blit(text_surface, (x, y))
+    base_surface.blit(text_surface, (x, y))
     pygame.display.flip()
 calibrated = False
 bulletangle = 10
@@ -18,19 +18,23 @@ cooldown = 0.5
 Tilesize2 = 64
 targetnum = 1
 angle = 270
-SCALE = 1.5
+SCALE = 3
 YELLOW = (255, 255, 0)
 targets = []
 enemies = []
 WIDTH, HEIGHT = 262, 512
+WINDOW_WIDTH, WINDOW_HEIGHT = int(WIDTH * SCALE), int(HEIGHT * SCALE)
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
+
+# Base surface (where we draw everything before scaling)
+base_surface = pygame.Surface((WIDTH, HEIGHT))
 thumbvalues = []
 pointervalues = []
 middlevalues = []
 ringvalues = []
 pinkyvalues = []
-pygame.display.set_mode((WIDTH, HEIGHT))
 turntime = time.time()
-HT = HandTracker(WIDTH, HEIGHT)
+HT = HandTracker()
 MIN_TARGET_DISTANCE = 200
 Left = False
 Right = False
@@ -49,9 +53,6 @@ music_path = os.path.join("Music", "OGG", "Slingerswagger.ogg")
 pygame.mixer.music.load(music_path)
 pygame.mixer.music.play(-1)
 font = pygame.font.SysFont(None, 36)
-SCALE = 1.5
-WINDOW_WIDTH, WINDOW_HEIGHT = int(WIDTH * SCALE), int(HEIGHT * SCALE)
-screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
 clock = pygame.time.Clock()
 
 BLACK = [100, 100, 100]
@@ -75,7 +76,7 @@ tiles = static.load_tiles("SandTilemap.png", Tilesize)
 background_data = static.load_csv_map("SandTilemap_Background.csv")
 foreground_data = static.load_csv_map("SandTilemap_Tile Layer 1.csv")
 base_surface = pygame.Surface((WIDTH, HEIGHT))
-while calibrated == False:
+while calibrated == True:
     if current_time == 0:
         current_time = time.time() - 5
     if current_time - time.time() < 0:
@@ -135,6 +136,9 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.VIDEORESIZE:
+            WINDOW_WIDTH, WINDOW_HEIGHT = event.w, event.h
+            screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
         elif event.type == pygame.MOUSEBUTTONDOWN:
             radians = math.radians(angle)
             x = center_x + radius * math.cos(radians)
@@ -150,19 +154,18 @@ while running:
                 'angle': angle
             })
 
-    if not HT.capture_frame():
-        print("Failed to capture frame from camera.")
-
-    indexpos = HT.update()
+    frame = HT.capture_frame()
+    if frame is None:
+        continue
+    HT.update(frame)
     wristdist = HT.wristdist()
     pinkywrist = HT.pinkywrist()
     thumbwrist = HT.thumbwrist()
     indexwrist = HT.indexwrist()
-    indexmodified = HT.min_max_scale(indexwrist,pointervalues)
-    print(indexmodified)
+    #indexmodified = HT.min_max_scale(indexwrist,pointervalues)
     angle %= 360  
 
-    if indexwrist is not None and indexwrist < 1.6:
+    if indexwrist is not None and indexwrist < 1:
         speed = 1
         radians = math.radians(angle)
         mx = math.cos(radians) * speed
@@ -170,19 +173,22 @@ while running:
         center_x = center_x + mx
         center_y = center_y + my
         animations.change_action("walking")
+        print("walking"+str(indexwrist))
 
     current_time = time.time()
-    if thumbwrist is not None and thumbwrist < 1.4:
+    if thumbwrist is not None and thumbwrist < 0.9:
         if current_time - turntime > 1:
             angle = angle - 90
             animations.rotate_direction(clockwise=True)
             turntime = current_time
+            print("thumb"+str(thumbwrist))
 
-    if pinkywrist is not None and pinkywrist < 1.4:
+    if pinkywrist is not None and pinkywrist < 0.95:
         if current_time - turntime > 1:
             angle = angle + 90
             animations.rotate_direction(clockwise=False)
             turntime = current_time
+            print("pinky"+str(pinkywrist))
 
     if wristdist is not None and current_time - last_call_time >= cooldown:
         if 0.000001 < wristdist < 1.2:
@@ -271,9 +277,17 @@ while running:
         rotated_bullet = pygame.transform.rotate(bullet_surf, -ball['angle'])
         bullet_rect = rotated_bullet.get_rect(center=(ball['pos'][0], ball['pos'][1]))
         base_surface.blit(rotated_bullet, bullet_rect)
+    window_width, window_height = screen.get_size()
+    scale_factor = min(window_width / WIDTH, window_height / HEIGHT)
+    scaled_width = int(WIDTH * scale_factor)
+    scaled_height = int(HEIGHT * scale_factor)
 
-    scaled_surface = pygame.transform.scale(base_surface, (WINDOW_WIDTH, WINDOW_HEIGHT))
-    screen.blit(scaled_surface, (0, 0))
+    x_offset = (window_width - scaled_width) // 2
+    y_offset = (window_height - scaled_height) // 2
+
+    scaled_surface = pygame.transform.scale(base_surface, (scaled_width, scaled_height))
+    screen.fill((0, 0, 0))  
+    screen.blit(scaled_surface, (x_offset, y_offset))
     pygame.display.flip()
     clock.tick(30)
 
