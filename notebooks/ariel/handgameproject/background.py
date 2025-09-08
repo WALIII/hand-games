@@ -32,11 +32,12 @@ class static:
             reader = csv.reader(f)
             return [[int(tile) for tile in row] for row in reader]
 
-    def draw_map(screen, tilemap, tiles, tile_size, offset_x=0, offset_y=0):
-        for y, row in enumerate(tilemap):
+    def draw_map(surface, data, tiles, tile_size, offset_x=0, offset_y=0):
+        for y, row in enumerate(data):
             for x, tile_index in enumerate(row):
                 if 0 <= tile_index < len(tiles):
-                    screen.blit(tiles[tile_index], (x * tile_size + offset_x, y * tile_size + offset_y))
+                    surface.blit(tiles[tile_index], (x * tile_size + offset_x, y * tile_size + offset_y))
+
 
 
 class SpriteAnimator:
